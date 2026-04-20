@@ -14,7 +14,7 @@ CORS(app)
 # ----------------------------
 print("Current directory:", os.getcwd())
 
-model = tf.keras.models.load_model("ecg_model.keras")
+model = tf.keras.models.load_model("ecg_model.h5")
 
 IMG_SIZE = 224
 

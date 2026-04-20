@@ -124,7 +124,6 @@ history = model.fit(
 # ----------------------------
 # SAVE MODEL
 # ----------------------------
-model.save("ecg_model.keras")
-model.save_weights("ecg_weights.h5")
+model.save("ecg_model.h5")
 
 print("✅ Model trained and saved successfully!")
