@@ -6,19 +6,25 @@ from PIL import Image
 import io
 import os
 
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
 app = Flask(__name__)
 CORS(app)
 
-# ----------------------------
-# LOAD MODEL
-# ----------------------------
-print("Current directory:", os.getcwd())
+print("🚀 Starting app...")
+print("📁 Current directory:", os.getcwd())
 
-model = tf.keras.models.load_model("ecg_model.h5")
+# ----------------------------
+# LOAD MODEL (SAFE)
+# ----------------------------
+try:
+    model = tf.keras.models.load_model("ecg_model.h5")
+    print("✅ Model loaded successfully")
+except Exception as e:
+    print("❌ Model loading failed:", e)
+    model = None
 
 IMG_SIZE = 224
-
-# Must match training order
 classes = ['AH', 'H_MI', 'MI', 'Non-ECG', 'Normal']
 
 # ----------------------------
@@ -26,7 +32,16 @@ classes = ['AH', 'H_MI', 'MI', 'Non-ECG', 'Normal']
 # ----------------------------
 @app.route("/")
 def home():
-    return "ECG Heart Disease Detection API Running"
+    return "✅ ECG API is running"
+
+# ----------------------------
+# HEALTH CHECK (IMPORTANT)
+# ----------------------------
+@app.route("/health")
+def health():
+    if model is None:
+        return jsonify({"status": "model not loaded"})
+    return jsonify({"status": "ok"})
 
 # ----------------------------
 # PREDICTION ROUTE
@@ -34,51 +49,43 @@ def home():
 @app.route("/predict", methods=["POST"])
 def predict():
     try:
+        if model is None:
+            return jsonify({"error": "Model not loaded on server"})
+
         if "file" not in request.files:
             return jsonify({"error": "No file uploaded"})
 
         file = request.files["file"]
 
-        # Read image
         img = Image.open(io.BytesIO(file.read())).convert("RGB")
         img = img.resize((IMG_SIZE, IMG_SIZE))
 
-        # Preprocess
         img = np.array(img) / 255.0
         img = np.expand_dims(img, axis=0)
 
-        # Prediction
         preds = model.predict(img)
         pred_index = np.argmax(preds)
         confidence = float(np.max(preds))
 
         predicted_class = classes[pred_index]
 
-        # 🔥 REJECTION LOGIC
         if predicted_class == "Non-ECG" or confidence < 0.6:
             return jsonify({
                 "prediction": "Not an ECG image",
-                "confidence": round(confidence * 100, 2),
-                "probabilities": {
-                    classes[i]: float(preds[0][i] * 100)
-                    for i in range(len(classes))
-                }
+                "confidence": round(confidence * 100, 2)
             })
 
         return jsonify({
             "prediction": predicted_class,
-            "confidence": round(confidence * 100, 2),
-            "probabilities": {
-                classes[i]: float(preds[0][i] * 100)
-                for i in range(len(classes))
-            }
+            "confidence": round(confidence * 100, 2)
         })
 
     except Exception as e:
+        print("❌ Prediction error:", e)
         return jsonify({"error": str(e)})
 
 # ----------------------------
-# RUN SERVER
+# RUN SERVER (RENDER FIX)
 # ----------------------------
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=10000)
